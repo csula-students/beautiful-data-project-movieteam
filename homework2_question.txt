@@ -1,0 +1,25 @@
+1. 
+What question(s) did you decide to work on as a team?
+Can we create a model using features of Twitter Tweets regarding movies to predict what user ratings for movies will be?
+
+2. 
+What is your data source(s)?
+We used Twitter as well as .csv file data from http://grouplens.org/datasets/movielens/
+
+3.
+How long does it take for you to download data? Have you download complete data set?
+The Csv file when compressed takes about 15 seconds to download. The Twitter API is limited according to the dev.twitter.com: "Search is rate limited at 180 queries per 15 minute window."  We have complete CSV data but incomplete Twitter data because of the rate limit.
+
+4.
+The CSV file is about 800 megabytes with 22,000,000 records. Each of these records is a rating about a movie. Unfortunately we have not finished collecting the Twitter data so we don't know how big it is. We are searching for data based on a query of the form "#movie_name", where movie_name is extracted from the CSV file. There are many different movies. Some movie names will naturally yield many tweets whilst other will yield very little, thus making it hard to estimate the size of data that Twitter will return and ultimately how much we will end up with.
+
+5. 
+Do you face any dirty data issue? If you do, how did you clean up your data?
+
+For the CSV file: 
+
+For the Twitter API: the only instance of dirty data was duplicate tweets. This happened a lot when a particular user id had sent out many tweets with the same text content, but since each tweet had a unique id, the Twitter API returned each of them as separate tweets. In order to clean this up, I made a class called TwitterResponse that is constructed from the contents of each Tweet. Each TwitterResponse method then has a equals() method that tests for equality between two tweet's text values. I then used a Set to eliminate tweets with duplicate text values.
+
+6.
+How do you store the data you downloaded?
+We store the data using MongoDB.
