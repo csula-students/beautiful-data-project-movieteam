@@ -3,4 +3,8 @@
 .idea/
 build/
 *.env
-
+.classpath
+.settings/
+.project
+/bin/
+mergedMovieData.csv
