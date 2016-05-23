@@ -1,5 +1,8 @@
 package edu.csula.datascience.elasticsearch;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.bson.Document;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -16,6 +19,7 @@ import edu.csula.datascience.utilities.MongoUtilities;
 public class MovieExporter extends Exporter {
 	private final static String indexName = "beautiful-movie-team-data";
 	private final static String typeName = "movies";
+	private List<Movie> movies = new ArrayList<>();
 
 	public MovieExporter(String clusterName) {
 		super(clusterName);
@@ -49,7 +53,8 @@ public class MovieExporter extends Exporter {
 			Document document = cursor.next();
 			if (validateDocument(document)) {
 				Movie movie = new Movie(document.getInteger("movieID"), document.getString("title"),
-						document.getDouble("rating"), document.getInteger("year"));
+						document.getString("hashtagTitle"), document.getDouble("rating"), document.getInteger("year"));
+				movies.add(movie);
 				insertObjAsJson(movie);
 			}
 			counter++; // our tweets are based on exactly 400 movies.
@@ -71,19 +76,25 @@ public class MovieExporter extends Exporter {
 		docValid = validateValue(document.getString("title"));
 		return docValid;
 	}
-
-	private class Movie {
+	
+	static class Movie {
 		final int movieId;
 		final String title;
+		final String hashTitle;
 		final double rating;
 		final int year;
 
-		public Movie(int movieId, String title, double rating, int year) {
+		public Movie(int movieId, String title, String hashTitle, double rating, int year) {
 			this.movieId = movieId;
 			// titles were stored as "title " in mongo
-			this.title = title.split(" ")[0];
+			this.title = title;
+			this.hashTitle = hashTitle;
 			this.rating = rating;
 			this.year = year;
 		}
+	}
+	
+	public List<Movie> getMovies() {
+		return movies;
 	}
 }

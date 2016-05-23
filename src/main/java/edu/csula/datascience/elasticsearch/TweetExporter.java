@@ -1,7 +1,10 @@
 package edu.csula.datascience.elasticsearch;
 
 import java.time.format.DateTimeFormatter;
+import edu.csula.datascience.elasticsearch.MovieExporter.Movie;
 import java.time.temporal.TemporalAccessor;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import org.bson.Document;
 import org.elasticsearch.action.bulk.BackoffPolicy;
@@ -19,13 +22,18 @@ import edu.csula.datascience.utilities.MongoUtilities;
 public class TweetExporter extends Exporter {
 	private final static String indexName = "beautiful-movie-team-data";
 	private final static String typeName = "tweets";
+	private List<Movie> movies;
+	private List<Tweet> tweets = new ArrayList<>();
 
-	public TweetExporter(String clusterName) {
+	public TweetExporter(String clusterName, List<Movie> movies) {
 		super(clusterName);
+		this.movies = movies;
 	}
 
 	@Override
 	public void exportToES() {
+		int tweetCounter = 0;
+		int documentCounter = 0;
 		MongoUtilities mongo = new MongoUtilities("movie-data", "tweets");
 		MongoCursor<Document> cursor = mongo.getCollection().find().iterator();
 		bulkProcessor = BulkProcessor.builder(client, new BulkProcessor.Listener() {
@@ -47,16 +55,48 @@ public class TweetExporter extends Exporter {
 				.setBackoffPolicy(BackoffPolicy.exponentialBackoff(TimeValue.timeValueMillis(100), 3)).build();
 
 		while (cursor.hasNext()) {
+			
 			Document document = cursor.next();
+			documentCounter++;
 			if (validateDocument(document)) {
-				Tweet tweet = new Tweet(document.getString("username"), document.getString("text"),
-						document.getInteger("favCt"), document.getInteger("retwtCt"), document.getString("date"),
-						document.getString("source"));
-				insertObjAsJson(tweet);
+//				System.out.println("Document #: " + documentCounter + " analyzed.");
+				String tweetTxt = document.getString("text");
+				for (Movie movie : movies) {
+					String hashTitle = movie.hashTitle;
+					String movieTitle = movie.title;
+					if (tweetTxt.contains(hashTitle) || tweetTxt.contains(movieTitle)) {
+						tweetCounter++;
+						Tweet tweet = new Tweet(document.getString("username"), document.getString("text"),
+								movieTitle, hashTitle, movie.rating, document.getString("date"));
+						tweets.add(tweet); //add a tweet
+						System.out.println("Tweet #: " + tweetCounter + " added to tweets list; " + tweet.text) ;
+					}
+				}
+//				insertObjAsJson(tweet);
 			}
 		}
+		
+		if (tweets.size() != 0)
+			insertTweets(tweets);
+		//insert list into insertObjAsJson method
 	}
-
+	
+	/**
+	 * Takes a collection of Tweet objects and inserts each of them into elastic search.
+	 * @param tweets
+	 * 		list of tweets to be inserted
+	 */
+	public void insertTweets(List<Tweet> tweets) {
+		for (Tweet tweet : tweets) {
+			insertObjAsJson(tweet);
+		}
+		System.out.println("Tweets list size: " + tweets.size());
+	}
+	
+	
+	/**
+	 * Takes an object, casts it to Tweet, and inserts that Tweet as JSON into ElasticSearch
+	 */
 	@Override
 	public void insertObjAsJson(Object object) {
 		if (object != null && object instanceof Tweet) {
@@ -65,12 +105,12 @@ public class TweetExporter extends Exporter {
 			System.out.println("Tweet record inserted into elastic search.");
 		}
 	}
-
+	
 	@Override
 	public boolean validateDocument(Document document) {
 		boolean docValid = false;
 		docValid = (validateValue(document.getString("username")) && validateValue(document.getString("text"))
-				&& validateValue(document.getString("date")) && validateValue(document.getString("source")));
+				&& validateValue(document.getString("date")));
 
 		return docValid;
 	}
@@ -78,20 +118,21 @@ public class TweetExporter extends Exporter {
 	private class Tweet {
 		final String user;
 		final String text;
-		final int favCt;
-		final int retweetCt;
+		final String title;
+		final String hashTitle;
+		final double rating;
 		final String date;
-		final String source;
 
-		public Tweet(String user, String text, int favCt, int retweetCt, String date, String source) {
+		public Tweet(String user, String text, String title, String hashTitle,
+				double rating, String date) {
 			this.user = user;
 			this.text = text;
-			this.favCt = favCt;
-			this.retweetCt = retweetCt;
+			this.title = title;
+			this.hashTitle = hashTitle;
+			this.rating = rating;
 			// Need parseDate to convert to a format of 'YY-MM-DD' for elastic
 			// search
 			this.date = parseDate(date);
-			this.source = source;
 		}
 
 		public String parseDate(String date) {
